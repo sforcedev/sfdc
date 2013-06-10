@@ -1,0 +1,50 @@
+trigger AfterConvertLead on Lead (after insert) {
+    
+    if(Trigger.isInsert)
+    {
+        for (Lead lead : Trigger.new) 
+        {
+            if (lead.isConverted == false) 
+            {
+                Database.LeadConvert lc = new Database.LeadConvert();
+                Account[] accExist = [Select Id,Name from Account where Name=:lead.Company LIMIT 1];
+                if(accExist.size()>0)
+                {
+                    lc.setAccountId(accExist[0].Id);
+                }
+                else
+                {
+                    Account[] lacc = [Select Id,Name from Account where Name='TestAccount'];
+                    lc.setAccountId(lacc[0].Id);
+                }
+                lc.setLeadId(lead.Id);      
+                lc.setDoNotCreateOpportunity(true); 
+                lc.setConvertedStatus('Closed - Converted');
+                System.Debug('LID'+lead.Id);
+                Database.LeadConvertResult lcr = Database.convertLead(lc);
+                ID conID = lcr.getContactId();
+                System.assert(lcr.isSuccess());
+                System.debug('Success######'+lcr.isSuccess());
+               
+                for(Contact con:[Select Id, Firstname, Lastname, Email from Contact where Id=:conID])
+                {
+                                                        
+                    User u = new User();
+                    u.Username= con.Email;
+                    u.Email = con.Email;
+                    u.Lastname = con.Lastname;
+                    u.Alias = '@';
+                    u.ProfileId='00e90000000fHNF';
+                    u.LocaleSidKey='en_GB'; 
+                    u.LanguageLocaleKey='en_US';
+                    u.isActive = true;
+                    u.ContactId  = conID;
+                    u.EmailEncodingKey ='ISO-8859-1';
+                    u.TimeZoneSidKey='America/Los_Angeles';
+                    
+                    insert u;
+                }
+            }         
+        }
+    }
+}
